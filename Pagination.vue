@@ -1,20 +1,20 @@
 <template>
   <div class="container">
     <div class="prev item" @click="prevClick">&lt;</div>
-    <div class="first item" @click="firstClick" :class="{ active: activeIndex === firstData }">{{ firstData }}</div>
+    <div class="first item" @click="firstClick" :class="{ active: activePage === firstData }">{{ firstData }}</div>
     <div class="more item" @click="prevMoreClick" v-show="startIndex > 0">...</div>
     <div class="list" @click="clickTarget" ref="list_dom">
       <div
         class="item"
         v-for="page in visiblePage"
         :key="page"
-        :class="{ active: activeIndex === page }"
+        :class="{ active: activePage === page }"
       >
         {{ page }}
       </div>
     </div>
     <div class="more item" @click="nextMoreClick" v-show="endIndex < datas.length">...</div>
-    <div class="last item" @click="lastClick" :class="{ active: activeIndex === lastData }">{{ lastData }}</div>
+    <div class="last item" @click="lastClick" :class="{ active: activePage === lastData }">{{ lastData }}</div>
     <div class="next item" @click="nextClick">&gt;</div>
   </div>
 </template>
@@ -45,7 +45,7 @@ const itemSize: number = 30;
 const lastData: number = datas.pop();
 const firstData: number = datas.shift();
 
-const activeIndex: Ref<number> = ref(0);
+const activePage: Ref<number> = ref(0);
 const startIndex: Ref<number> = ref(0);
 const endIndex: Ref<number> = ref(0);
 
@@ -54,71 +54,77 @@ const list_dom = ref<HTMLElement | null>(null);
 const visiblePage = computed(() => datas.slice(startIndex.value, endIndex.value));
 
 const prevClick = () => {
-  const currentIndex = activeIndex.value - 1;
-  if (currentIndex >= firstData) {
+  const currentPage = activePage.value - 1;
+  if (currentPage >= firstData) {
+    const leftPointer = visibleCount;
+    const rightPointer = datas.length - visibleCount + 2;
+
     startIndex.value =
-      currentIndex > visibleCount
-        ? currentIndex <= datas.length - visibleCount + 2
+      currentPage > leftPointer
+        ? currentPage <= rightPointer
           ? startIndex.value - 1
           : startIndex.value
         : 0;
 
     endIndex.value = startIndex.value + visibleCount;
-    activeIndex.value = currentIndex;
-    emits("currentPage", activeIndex.value);
+    activePage.value = currentPage;
+    emits("currentPage", activePage.value);
   }
 };
 
 const nextClick = () => {
-  const currentIndex = activeIndex.value + 1;
-  if (currentIndex <= lastData) {
+  const currentPage = activePage.value + 1;
+  if (currentPage <= lastData) {
+    const leftPointer = visibleCount;
+    const rightPointer = datas.length - visibleCount + 2;
+
     endIndex.value =
-      currentIndex <= datas.length - visibleCount + 2
-        ? currentIndex > visibleCount
+      currentPage <= rightPointer
+        ? currentPage > leftPointer
           ? endIndex.value + 1
           : endIndex.value
         : datas.length;
 
     startIndex.value = endIndex.value - visibleCount;
-    activeIndex.value = currentIndex;
-    emits("currentPage", activeIndex.value);
+    activePage.value = currentPage;
+    emits("currentPage", activePage.value);
   }
 };
 
 const clickTarget = (event: MouseEvent) => {
   const target = event.target as HTMLElement;
   if (target !== list_dom.value) {
-    activeIndex.value = Number(target.textContent);
-    emits("currentPage", activeIndex.value);
+    activePage.value = Number(target.textContent);
+    emits("currentPage", activePage.value);
   }
 };
 
 const prevMoreClick = () => {
   startIndex.value = Math.max(0, startIndex.value - visibleCount);
   endIndex.value = startIndex.value + visibleCount;
-  activeIndex.value = endIndex.value + 1;
-  emits("currentPage", activeIndex.value);
+  activePage.value = endIndex.value + 1;
+  emits("currentPage", activePage.value);
 };
 
 const nextMoreClick = () => {
   startIndex.value = Math.min(endIndex.value, datas.length - visibleCount);
   endIndex.value = startIndex.value + visibleCount;
-  activeIndex.value = startIndex.value + 2;
-  emits("currentPage", activeIndex.value);
+  activePage.value = startIndex.value + 2;
+  emits("currentPage", activePage.value);
 };
 
 const firstClick = () => {
   startIndex.value = 0;
   endIndex.value = startIndex.value + visibleCount;
-  activeIndex.value = firstData;
-  emits("currentPage", activeIndex.value);
+  activePage.value = firstData;
+  emits("currentPage", activePage.value);
 };
 
 const lastClick = () => {
   startIndex.value = datas.length - visibleCount;
   endIndex.value = startIndex.value + visibleCount;
-  activeIndex.value = lastData;
-  emits("currentPage", activeIndex.value);
+  activePage.value = lastData;
+  emits("currentPage", activePage.value);
 };
 
 onMounted(() => {
@@ -127,8 +133,8 @@ onMounted(() => {
     visibleCount = Math.floor(screenSize / itemSize) - 2;
     startIndex.value = 0;
     endIndex.value = startIndex.value + visibleCount;
-    activeIndex.value = firstData;
-    emits("currentPage", activeIndex.value);
+    activePage.value = firstData;
+    emits("currentPage", activePage.value);
   }
 });
 </script>
