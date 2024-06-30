@@ -25,8 +25,7 @@
       :min="firstData"
       :max="lastData"
       :value="activePage"
-      @blur="searchBlurEvent"
-      @keydown="searchKeyupEvent" />
+      @change="searchEvent" />
   </div>
 </template>
 
@@ -73,7 +72,7 @@ function setCurrentPage(currentPage: number) {
   emits("currentPage", activePage.value);
 }
 
-function searchMethod(event: FocusEvent | KeyboardEvent) {
+function searchEvent(event: Event) {
   const target = event.target as HTMLInputElement;
   const currentPage = Math.ceil(
     Math.min(lastData, Math.max(firstData, Number(target.value)))
@@ -169,20 +168,6 @@ const lastEvent = () => {
 
   setCurrentPage(lastData);
 };
-
-const searchBlurEvent = (event: FocusEvent) => {
-  searchMethod(event);
-}
-
-const searchKeyupEvent =  (event: KeyboardEvent) => {
-  switch (event.key) {
-    case 'Enter':
-      searchMethod(event);
-      break;
-    default:
-      break;
-  }
-}
 
 onMounted(() => {
     visibleCount = props.pagerCount - 2;
