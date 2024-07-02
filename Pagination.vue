@@ -2,7 +2,9 @@
   <div class="container">
     <div class="prev item" @click="prevEvent">&lt;</div>
     <div class="first item" @click="firstEvent" :class="{ active: activePage === firstData }">{{ firstData }}</div>
-    <div class="more item" @click="prevMoreEvent" v-show="startIndex > 0">...</div>
+
+    <div class="more item" @click="prevMoreEvent" v-show="showPreMore">...</div>
+
     <div class="list" @click="clickTarget">
       <div
           class="item"
@@ -13,24 +15,27 @@
         {{ page }}
       </div>
     </div>
-    <div class="more item" @click="nextMoreEvent" v-show="endIndex < datas.length">...</div>
-    <div class="last item" @click="lastEvent" :class="{ active: activePage === lastData }">{{ lastData }}</div>
+
+    <div class="more item" @click="nextMoreEvent" v-show="showLastMore">...</div>
+
+    <div class="last item" @click="lastEvent" :class="{ active: activePage == lastData }">{{ lastData }}</div>
     <div class="next item" @click="nextEvent">&gt;</div>
+
     <label for="search" class="search-label">Go to</label>
     <input
-      id="search"
-      type="number"
-      title="搜索页码"
-      autocomplete="off"
-      :min="firstData"
-      :max="lastData"
-      :value="activePage"
-      @change="searchEvent" />
+        id="search"
+        type="number"
+        title="搜索页码"
+        autocomplete="off"
+        :min="firstData"
+        :max="lastData"
+        :value="activePage"
+        @change="searchEvent" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, Ref } from "vue";
+import { ref, onMounted, Ref } from "vue";
 
 const props = defineProps({
   pageCount: {
@@ -44,93 +49,95 @@ const props = defineProps({
 });
 const emits = defineEmits(["currentPage"]);
 
-const datas = new Array(Math.ceil(props.pageCount))
-    .fill(1)
-    .map((item, index) => item + index);
 
-let visibleCount: number = 0;
+let showLastMore = true;
+let showPreMore = false;
 
-const lastData: number = datas.pop();
-const firstData: number = datas.shift();
+const firstData: number = 1;
+const lastData: number = props.pageCount;
 
 const activePage: Ref<number> = ref(0);
-const startIndex: Ref<number> = ref(0);
-const endIndex: Ref<number> = ref(0);
 
-const visiblePage = computed(() => datas.slice(startIndex.value, endIndex.value));
+let visiblePage: Array<number> = new Array(2);
+
+// 页码为1，页码为n 是必有的
+// 中间页码 = 先前页码 + 当前页码 + 后续页码。如果当前页码不是1和n时
+// len(中间页码) = 显示页数 - 2
+// 如果中间页码为偶数，去除掉当前页码，则 先前页码 + 1 = 后续页码
+// 如果中间页码为奇数，去除掉当前页码，则 先前页码 = 后续页码
+
+let middlePage = props.pagerCount - 2;
+// 求得先前有多少个页码
+let prePageLength = middlePage % 2 === 0 ? middlePage / 2 : (middlePage - 1) / 2;
+
+// if (middlePage % 2 === 0) {
+//   // prePage + prePage = middlePage
+//   prePage = middlePage / 2;
+// } else {
+//   // prePage + prePage + 1 = middlePage
+//   prePage = (middlePage - 1) / 2;
+// }
+
 
 function setCurrentPage(currentPage: number) {
   if (currentPage <= 0) {
     return;
   }
 
-  if (currentPage > props.pageCount) {
+  if (currentPage > lastData) {
     return;
   }
 
   activePage.value = currentPage;
   emits("currentPage", activePage.value);
+
+  doRefresh(currentPage);
+}
+
+function doRefresh(currentPage: number) {
+  // 先前的页码
+  let prePage : number = currentPage - prePageLength;
+
+  showLastMore = true;
+  showPreMore = true;
+
+  // 如果先前的页码 小等于 1，则先前页码应为2开始
+  if (prePage <= 2) {
+    prePage = 2;
+  }
+
+  // 如果后续页码大等于 n，则先前页码 应为 总页数 - 中间页数
+  if (prePage + middlePage >= lastData) {
+    prePage = lastData - middlePage
+  }
+
+  // 生成输出序列
+  visiblePage = Array.from(
+      {length: middlePage},
+      (_, i) => prePage + i
+  )
+
+  showPreMore = !(prePage === 2)
+  showLastMore = !(prePage === lastData - middlePage);
 }
 
 function searchEvent(event: Event) {
   const target = event.target as HTMLInputElement;
-  const currentPage = Math.ceil(
-    Math.min(lastData, Math.max(firstData, Number(target.value)))
-  );
+  const targetNumber : number = Number(target.value);
 
-  const leftPointer = currentPage - visibleCount / 2;
-  const rightPointer = currentPage + visibleCount / 2;
-
-  if (leftPointer <= firstData) {
-    startIndex.value = 0;
-    endIndex.value = startIndex.value + visibleCount;
-  } else if (rightPointer >= lastData) {
-    endIndex.value = datas.length;
-    startIndex.value = endIndex.value - visibleCount;
-  } else {
-    startIndex.value = leftPointer - 1;
-    endIndex.value = startIndex.value + visibleCount;
+  if (isNaN(targetNumber) || targetNumber < firstData || targetNumber > lastData) {
+    target.value = String(activePage.value)
+    return;
   }
 
-  target.value = currentPage.toString();
-  setCurrentPage(currentPage);
+  setCurrentPage(targetNumber);
 }
 
 const prevEvent = () => {
-  const currentPage = activePage.value;
-  if (currentPage >= firstData) {
-    const leftPointer = visibleCount;
-    const rightPointer = datas.length - visibleCount + 2;
-
-    startIndex.value =
-        currentPage > leftPointer
-            ? currentPage <= rightPointer
-                ? startIndex.value - 1
-                : startIndex.value
-            : 0;
-
-    endIndex.value = startIndex.value + visibleCount;
-  }
-
   setCurrentPage(activePage.value - 1);
 };
 
 const nextEvent = () => {
-  const currentPage = activePage.value;
-  if (currentPage <= lastData) {
-    const leftPointer = visibleCount;
-    const rightPointer = datas.length - visibleCount + 2;
-
-    endIndex.value =
-        currentPage <= rightPointer
-            ? currentPage > leftPointer
-                ? endIndex.value + 1
-                : endIndex.value
-            : datas.length;
-
-    startIndex.value = endIndex.value - visibleCount;
-  }
-
   setCurrentPage(activePage.value + 1);
 };
 
@@ -140,41 +147,23 @@ const clickTarget = (event: MouseEvent) => {
 };
 
 const prevMoreEvent = () => {
-  startIndex.value = Math.max(0, startIndex.value - visibleCount);
-  endIndex.value = startIndex.value + visibleCount;
-  activePage.value -= activePage.value >= lastData ? visibleCount + 1 : visibleCount;
-
-  setCurrentPage(activePage.value);
+  setCurrentPage(activePage.value - 4);
 };
 
 const nextMoreEvent = () => {
-  startIndex.value = Math.min(endIndex.value, datas.length - visibleCount);
-  endIndex.value = startIndex.value + visibleCount;
-  activePage.value += activePage.value <= firstData ? visibleCount + 1 : visibleCount;
-
-  setCurrentPage(activePage.value);
+  setCurrentPage(activePage.value + 4);
 };
 
 const firstEvent = () => {
-  startIndex.value = 0;
-  endIndex.value = startIndex.value + visibleCount;
-
   setCurrentPage(firstData);
 };
 
 const lastEvent = () => {
-  startIndex.value = datas.length - visibleCount;
-  endIndex.value = startIndex.value + visibleCount;
-
   setCurrentPage(lastData);
 };
 
 onMounted(() => {
-    visibleCount = props.pagerCount - 2;
-    startIndex.value = 0;
-    endIndex.value = startIndex.value + visibleCount;
-
-    setCurrentPage(firstData);
+  setCurrentPage(firstData);
 });
 
 </script>
@@ -246,6 +235,6 @@ onMounted(() => {
 
 #search::-webkit-outer-spin-button,
 #search::-webkit-inner-spin-button {
-    -webkit-appearance: none;
+  -webkit-appearance: none;
 }
 </style>
